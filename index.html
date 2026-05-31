@@ -214,11 +214,11 @@ const PAPER = '#f3ead6';
 const PATTERNS = {
   hui: {
     name:'回纹', en:'Meander / Key Fret', color:'#2f4858',
-    structure:'二方连续', tags:['二方连续','直角折线','边饰'],
-    origin:'回纹源起于新石器时代陶器上的雷纹、云纹，因形如「回」字而得名，盛行于商周青铜器，后广泛用作器物、建筑、织物的边饰。',
+    structure:'四方连续', tags:['四方连续','方形螺旋','锦地'],
+    origin:'回纹源起于新石器时代陶器上的雷纹、云纹，因形如「回」字而得名，盛行于商周青铜器，后广泛用作器物、建筑、织物的边饰与底纹。',
     meaning:'其线条连绵不断、回环往复，民间称「富贵不断头」，寓意吉利绵长、生生不息。',
     quote:'连绵不断，是为「富贵不断头」。',
-    method:'算法以一个「回」字折线为单位纹样，沿水平方向等距重复（二方连续），即生成连绵的回纹带。'
+    method:'算法以方形螺旋为单位纹样——自外圈起笔，每两条边收缩一个圈距向内回旋；再令其沿水平与垂直方向铺排、相邻交替朝向（四方连续），即成回旋咬合的回纹锦地。'
   },
   ice: {
     name:'冰裂纹', en:'Ice-Crack Crackle', color:'#3a4a5a',
@@ -247,43 +247,46 @@ function clear(){
   ctx.fillRect(0,0,canvas.width,canvas.height);
 }
 
-/* ---------- 回纹（二方连续 · 连续回纹带） ---------- */
+/* ---------- 回纹（四方连续 · 方形螺旋锦地） ---------- */
 function drawHui(){
   clear();
   const W=canvas.width, H=canvas.height;
   const color = PATTERNS.hui.color;
-  const rows = Math.max(2, Math.round(density*0.7));
-  const cell = Math.min(125, (W-40)/7.2);
-  const u = cell/7;
-  const bandH = 7*u;
-  const gap = (H-40-rows*bandH)/(rows+1);
-  const lw = Math.max(5, u*1.0);
-  ctx.lineCap='round'; ctx.lineJoin='round';
+  // 单元格越多则越密；以疏密滑块控制列数
+  const cols = Math.max(3, Math.round(density*0.9)+1);
+  const cell = (W-30)/cols;
+  const rows = Math.max(2, Math.round((H-30)/cell));
+  const sx = (W-cols*cell)/2;
+  const sy = (H-rows*cell)/2;
+  const lw = Math.max(2, Math.min(4, cell*0.035));
+  ctx.lineCap='square'; ctx.lineJoin='miter';
   for(let r=0;r<rows;r++){
-    const y = 20 + gap + r*(bandH+gap);
-    drawHuiBand(y, cell, color, lw);
+    for(let c=0;c<cols;c++){
+      // 相邻单元交替旋转方向，形成参考图般的咬合锦地
+      const flip = (r+c)%2===0;
+      drawSpiralUnit(sx+c*cell+cell*0.06, sy+r*cell+cell*0.06, cell*0.88, color, lw, flip);
+    }
   }
 }
-function drawHuiBand(y, cell, color, lw){
-  const W=canvas.width;
-  const u = cell/7;
-  const n = Math.floor((W-40)/cell);
-  const startX = 20 + ((W-40)-n*cell)/2;
+function drawSpiralUnit(x, y, size, color, lw, flip){
+  // 标准方形螺旋：从外圈起笔，每两条边收缩一个圈距，向内回旋
+  const gap = size/8.0;
+  // 方向序列（flip 时左右镜像，使相邻单元朝向交替）
+  const dirs = flip
+    ? [[0,-1],[1,0],[0,1],[-1,0]]   // 上 右 下 左
+    : [[0,-1],[-1,0],[0,1],[1,0]];  // 上 左 下 右
+  let xc = flip ? x : x+size;
+  let yc = y+size;
   ctx.strokeStyle=color; ctx.lineWidth=lw;
   ctx.beginPath();
-  ctx.moveTo(startX, y+6*u);
-  for(let i=0;i<n;i++){
-    const bx = startX + i*cell;
-    // 经典回纹单元：方形外框(上开口) + 完整内螺旋，单元间底边相连
-    ctx.lineTo(bx,        y+6*u);
-    ctx.lineTo(bx,        y+u);
-    ctx.lineTo(bx+5*u,    y+u);
-    ctx.lineTo(bx+5*u,    y+5*u);
-    ctx.lineTo(bx+2*u,    y+5*u);
-    ctx.lineTo(bx+2*u,    y+3*u);
-    ctx.lineTo(bx+3.5*u,  y+3*u);   // 内钩
-    ctx.lineTo(bx+3.5*u,  y+6*u);   // 落回底基线
-    ctx.lineTo(bx+cell,   y+6*u);   // 连向下一单元（不断头）
+  ctx.moveTo(xc,yc);
+  let L=size, i=0;
+  while(L>gap){
+    const [dx,dy]=dirs[i%4];
+    xc+=dx*L; yc+=dy*L;
+    ctx.lineTo(xc,yc);
+    if(i%2===1) L-=gap;
+    i++;
   }
   ctx.stroke();
 }
